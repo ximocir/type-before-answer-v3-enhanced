@@ -22,6 +22,10 @@ by Jack Thompson (MIT). Published on AnkiWeb as
    exactly at that point. Every line also keeps a red writing area at its end.
    The original white text can never be edited or deleted.
 
+`Tab` and `Shift+Tab` leave the box and return the keyboard focus to the
+reviewer, so `Space` still rates the card as usual (Good) instead of
+pressing a focused answer button.
+
 ## Install
 
 - From AnkiWeb: <https://ankiweb.net/shared/info/530971709>

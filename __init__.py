@@ -1996,58 +1996,6 @@ def _build_review_ui_js(reviewer: Reviewer, show_input: bool, auto_focus: bool) 
         pycmd(currentOptions().focusCommand);
     }}
 
-    function focusableControlsOutside(root) {{
-        const selector = (
-            "button, [href], input, select, textarea, [tabindex]"
-        );
-        return Array.prototype.slice
-            .call(document.querySelectorAll(selector))
-            .filter(function(element) {{
-                if (!element || root.contains(element)) {{
-                    return false;
-                }}
-                if (element.disabled) {{
-                    return false;
-                }}
-                if (element.tabIndex < 0) {{
-                    return false;
-                }}
-                if (element.getAttribute("aria-hidden") === "true") {{
-                    return false;
-                }}
-                const rect = element.getBoundingClientRect();
-                return rect.width > 0 || rect.height > 0;
-            }});
-    }}
-
-    function focusAdjacentControl(root, direction) {{
-        const controls = focusableControlsOutside(root);
-        let target = null;
-        for (let index = 0; index < controls.length; index += 1) {{
-            const control = controls[index];
-            const following = Boolean(
-                root.compareDocumentPosition(control)
-                & Node.DOCUMENT_POSITION_FOLLOWING
-            );
-            if (direction > 0 && following) {{
-                target = control;
-                break;
-            }}
-            if (direction < 0 && !following) {{
-                target = control;
-            }}
-        }}
-        if (!target) {{
-            return false;
-        }}
-        try {{
-            target.focus();
-        }} catch (error) {{
-            return false;
-        }}
-        return true;
-    }}
-
     function reportStateNow() {{
         if (input.typeBeforeAnswerV3TextTimer) {{
             clearTimeout(input.typeBeforeAnswerV3TextTimer);
@@ -2182,10 +2130,7 @@ def _build_review_ui_js(reviewer: Reviewer, show_input: bool, auto_focus: bool) 
             ) {{
                 evt.preventDefault();
                 evt.stopPropagation();
-                reportStateNow();
-                if (!focusAdjacentControl(box, evt.shiftKey ? -1 : 1)) {{
-                    focusReviewer();
-                }}
+                focusReviewer();
                 return;
             }}
             if (evt.key === "Enter" && (evt.ctrlKey || evt.metaKey) && !evt.shiftKey && !evt.altKey) {{

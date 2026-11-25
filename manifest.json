@@ -1,19 +1,22 @@
 {
-  "name": "Type Before Answer v3 (local)",
-  "package": "type_before_answer_v3_custom",
-  "human_version": "3.1.0-local",
+  "package": "type_before_answer_v3_enhanced",
+  "name": "Type Before Answer v3 — Enhanced",
+  "human_version": "3.2.1",
   "min_point_version": 54,
   "max_point_version": 0,
   "branch_index": 0,
+  "mod": 1794930038,
   "conflicts": [
-    "anki-type",
+    "208639570",
+    "type-before-answer-v3",
+    "type-before-answer_v3",
     "type before show answer",
+    "anki-type",
     "type-before-answer-v2",
     "type-before-answer_v2",
     "type-before-answer-v2-1",
     "type-before-answer_v2_1",
     "type-before-answer-v2-2",
-    "type-before-answer_v2_2",
-    "type-before-answer_v3"
+    "type-before-answer_v2_2"
   ]
 }

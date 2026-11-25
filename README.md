@@ -24,7 +24,11 @@ by Jack Thompson (MIT). Published on AnkiWeb as
 
 `Tab` and `Shift+Tab` leave the box and return the keyboard focus to the
 reviewer, so `Space` still rates the card as usual (Good) instead of
-pressing a focused answer button.
+pressing a focused answer button. `Backspace` and `Delete` remove all the red
+text you have selected and never touch the white text, even if the selection
+covers both; `Ctrl+Backspace` and `Ctrl+Delete` delete whole words inside your
+red corrections. On the front the box is a normal text area, so deleting a
+selection and `Ctrl+Backspace` work as usual.
 
 ## Install
 

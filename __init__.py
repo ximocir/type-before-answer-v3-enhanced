@@ -478,23 +478,6 @@ def _build_review_ui_js(reviewer: Reviewer, show_input: bool, auto_focus: bool) 
         return false;
     }}
 
-    function clampRangeToInput(inputElement, range) {{
-        const bounds = document.createRange();
-        bounds.selectNodeContents(inputElement);
-        const clamped = range.cloneRange();
-        try {{
-            if (clamped.compareBoundaryPoints(Range.START_TO_START, bounds) < 0) {{
-                clamped.setStart(bounds.startContainer, bounds.startOffset);
-            }}
-            if (clamped.compareBoundaryPoints(Range.END_TO_END, bounds) > 0) {{
-                clamped.setEnd(bounds.endContainer, bounds.endOffset);
-            }}
-        }} catch (error) {{
-            return null;
-        }}
-        return clamped;
-    }}
-
     function caretOffsetInInput(inputElement, range) {{
         const before = document.createRange();
         before.selectNodeContents(inputElement);
@@ -606,6 +589,187 @@ def _build_review_ui_js(reviewer: Reviewer, show_input: bool, auto_focus: bool) 
         collapsed.collapse(true);
         selection.removeAllRanges();
         selection.addRange(collapsed);
+        return true;
+    }}
+
+    function isWordCharacter(ch) {{
+        return /[\\p{{L}}\\p{{N}}_]/u.test(ch);
+    }}
+
+    function wordStartOffset(text, offset) {{
+        let index = Math.min(Math.max(offset, 0), text.length);
+        while (index > 0 && /\\s/.test(text.charAt(index - 1))) {{
+            index -= 1;
+        }}
+        if (index > 0 && isWordCharacter(text.charAt(index - 1))) {{
+            while (index > 0 && isWordCharacter(text.charAt(index - 1))) {{
+                index -= 1;
+            }}
+        }} else {{
+            while (
+                index > 0
+                && !isWordCharacter(text.charAt(index - 1))
+                && !/\\s/.test(text.charAt(index - 1))
+            ) {{
+                index -= 1;
+            }}
+        }}
+        return index;
+    }}
+
+    function wordEndOffset(text, offset) {{
+        let index = Math.min(Math.max(offset, 0), text.length);
+        while (index < text.length && /\\s/.test(text.charAt(index))) {{
+            index += 1;
+        }}
+        if (index < text.length && isWordCharacter(text.charAt(index))) {{
+            while (index < text.length && isWordCharacter(text.charAt(index))) {{
+                index += 1;
+            }}
+        }} else {{
+            while (
+                index < text.length
+                && !isWordCharacter(text.charAt(index))
+                && !/\\s/.test(text.charAt(index))
+            ) {{
+                index += 1;
+            }}
+        }}
+        return index;
+    }}
+
+    function deleteRangeInInput(inputElement, from, to) {{
+        const selection = window.getSelection();
+        if (!selection || from >= to) {{
+            return false;
+        }}
+        const start = positionAtOffset(inputElement, from);
+        const end = positionAtOffset(inputElement, to);
+        const target = document.createRange();
+        try {{
+            target.setStart(start.node, start.offset);
+            target.setEnd(end.node, end.offset);
+        }} catch (error) {{
+            return false;
+        }}
+        selection.removeAllRanges();
+        selection.addRange(target);
+        let removed = false;
+        try {{
+            removed = document.execCommand("delete", false, null);
+        }} catch (error) {{
+            removed = false;
+        }}
+        if (!removed) {{
+            target.deleteContents();
+        }}
+        const restored = positionAtOffset(inputElement, from);
+        const collapsed = document.createRange();
+        collapsed.setStart(restored.node, restored.offset);
+        collapsed.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(collapsed);
+        return true;
+    }}
+
+    function deleteWordInsideInput(inputElement, forward) {{
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {{
+            return false;
+        }}
+        const range = selection.getRangeAt(0);
+        if (!inputElement.contains(range.startContainer)) {{
+            return false;
+        }}
+        const content = inputElement.textContent || "";
+        const caret = caretOffsetInInput(inputElement, range);
+        if (caret === null) {{
+            return false;
+        }}
+        const from = forward ? caret : wordStartOffset(content, caret);
+        const to = forward ? wordEndOffset(content, caret) : caret;
+        if (from === to) {{
+            return false;
+        }}
+        return deleteRangeInInput(inputElement, from, to);
+    }}
+
+    function deleteSelectedCorrections() {{
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || selection.rangeCount === 0) {{
+            return false;
+        }}
+        const range = selection.getRangeAt(0);
+        let caretGap = null;
+        let caretOffset = 0;
+        let removed = false;
+        lineInputs().forEach(function(gap) {{
+            if (!range.intersectsNode(gap)) {{
+                return;
+            }}
+            const bounds = document.createRange();
+            bounds.selectNodeContents(gap);
+            const sub = document.createRange();
+            try {{
+                if (
+                    range.compareBoundaryPoints(
+                        Range.START_TO_START, bounds
+                    ) <= 0
+                ) {{
+                    sub.setStart(bounds.startContainer, bounds.startOffset);
+                }} else {{
+                    sub.setStart(range.startContainer, range.startOffset);
+                }}
+                if (
+                    range.compareBoundaryPoints(
+                        Range.END_TO_END, bounds
+                    ) >= 0
+                ) {{
+                    sub.setEnd(bounds.endContainer, bounds.endOffset);
+                }} else {{
+                    sub.setEnd(range.endContainer, range.endOffset);
+                }}
+            }} catch (error) {{
+                return;
+            }}
+            if (sub.collapsed) {{
+                return;
+            }}
+            if (!removed) {{
+                caretGap = gap;
+                const offset = caretOffsetInInput(gap, sub);
+                caretOffset = offset === null ? 0 : offset;
+            }}
+            sub.deleteContents();
+            removed = true;
+        }});
+        if (!removed) {{
+            return false;
+        }}
+        selection.removeAllRanges();
+        cleanupEmptyGaps();
+        let target = caretGap && caretGap.isConnected ? caretGap : null;
+        if (!target) {{
+            target = lastTrailingInput();
+        }}
+        if (target) {{
+            const length = (target.textContent || "").length;
+            const position = positionAtOffset(
+                target, Math.min(caretOffset, length)
+            );
+            const caret = document.createRange();
+            caret.setStart(position.node, position.offset);
+            caret.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(caret);
+            try {{
+                target.focus({{ preventScroll: true }});
+            }} catch (error) {{
+                target.focus();
+            }}
+            selection.removeAllRanges();
+            selection.addRange(caret);
+        }}
         return true;
     }}
 
@@ -2219,17 +2383,25 @@ def _build_review_ui_js(reviewer: Reviewer, show_input: bool, auto_focus: bool) 
             }}
             if (evt.key === "Backspace" || evt.key === "Delete") {{
                 const selection = window.getSelection();
-                if (selection && !selection.isCollapsed && selection.rangeCount > 0) {{
-                    const clamped = clampRangeToInput(
-                        lineInput, selection.getRangeAt(0)
-                    );
-                    if (clamped && !clamped.collapsed) {{
-                        selection.removeAllRanges();
-                        selection.addRange(clamped);
-                    }}
-                }}
-                if (selectionTouchesOriginal()) {{
+                if (
+                    selection
+                    && !selection.isCollapsed
+                    && selection.rangeCount > 0
+                ) {{
+                    const removedRed = deleteSelectedCorrections();
                     evt.preventDefault();
+                    evt.stopPropagation();
+                    if (removedRed) {{
+                        reportStateSoon();
+                    }}
+                    return;
+                }}
+                if ((evt.ctrlKey || evt.metaKey) && !evt.altKey) {{
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                    if (deleteWordInsideInput(lineInput, evt.key === "Delete")) {{
+                        reportStateSoon();
+                    }}
                     return;
                 }}
                 const htmlBefore = lineInput.innerHTML;
